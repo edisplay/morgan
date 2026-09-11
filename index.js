@@ -61,9 +61,10 @@ function escapeLogField (value) {
   if (value == null) return undefined
 
   // eslint-disable-next-line no-control-regex
-  return String(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\\]/g, function (ch) {
+  return String(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029"\\]/g, function (ch) {
     switch (ch) {
       case '\\': return '\\\\'
+      case '"': return '\\"'
       case '\b': return '\\b'
       case '\f': return '\\f'
       case '\n': return '\\n'

@@ -692,7 +692,7 @@ describe('morgan()', function () {
           assert.strictEqual(lines.length, 1)
           assert.strictEqual(lines[0].indexOf('\r'), -1)
           assert.strictEqual(lines[0].indexOf('\n'), -1)
-          assert.strictEqual(lines[0], '- [01/Jan/1970 00-00-00 +0000] "GET /injected HTTP/1.1" 200 - "-" "curl/8.14.1"\\r\\n192.0.2.0 - - ')
+          assert.strictEqual(lines[0], '- [01/Jan/1970 00-00-00 +0000] \\"GET /injected HTTP/1.1\\" 200 - \\"-\\" \\"curl/8.14.1\\"\\r\\n192.0.2.0 - - ')
           done()
         })
 
@@ -757,6 +757,45 @@ describe('morgan()', function () {
         request(createServer(':remote-user', { stream: stream }))
           .get('/')
           .set('Authorization', 'Basic Og==')
+          .expect(200, cb)
+      })
+    })
+
+    // @see https://github.com/expressjs/morgan/security/advisories/GHSA-9f6g-j8ch-79g4
+    describe('double-quote log field injection', function () {
+      it('should escape double quotes in a token value', function (done) {
+        var cb = after(2, function (err, res, line) {
+          if (err) return done(err)
+          assert.strictEqual(line, 'evil\\"user')
+          done()
+        })
+
+        var stream = createLineStream(function (line) {
+          cb(null, null, line)
+        })
+
+        // 'evil"user:x' in Base64
+        request(createServer(':remote-user', { stream: stream }))
+          .get('/')
+          .set('Authorization', 'Basic ZXZpbCJ1c2VyOng=')
+          .expect(200, cb)
+      })
+
+      it('should escape double quotes so a quoted field cannot be broken out of', function (done) {
+        var cb = after(2, function (err, res, line) {
+          if (err) return done(err)
+          // the injected quotes are escaped, so the value stays a single quoted field
+          assert.strictEqual(line, '"eviL\\" 200 \\"x"')
+          done()
+        })
+
+        var stream = createLineStream(function (line) {
+          cb(null, null, line)
+        })
+
+        request(createServer('":user-agent"', { stream: stream }))
+          .get('/')
+          .set('User-Agent', 'eviL" 200 "x')
           .expect(200, cb)
       })
     })
